@@ -6,7 +6,7 @@ import functools
 
 class ProtracClient(object):
     
-    def __init_(self,device,baud_rate,io_loop,callback=None):
+    def __init__(self,device,baud_rate,io_loop,callback=None):
         self.serial = serial.Serial(device,baud_rate)
         self.serial.nonblocking()
         self.buffer = ''
@@ -22,15 +22,20 @@ class ProtracClient(object):
     
     def _on_data(self,fd,events):
         try:
-            self.buffer = self.buffer+self.serial.read(1).encode('hex')
-            match = self.packet_regex.search(self.buffer)
+	    data = self.serial.read(1) 
+	    self.buffer = self.buffer+data
+	    match = self.packet_regex.search(self.buffer)
             if match and match.groups():
-                groups = match.groups()
-                if (ord(groups[1]) - 4) == len(groups[4]) + len(groups[5]) + len(groups[6]):
+                print 'got a match' 
+		groups = match.groups()
+                print groups 
+		if (ord(groups[1]) - 2) == len(groups[4]) + len(groups[5]) + len(groups[6]):
                     #self.packet_regex.sub('',self.buffer)#remove it from the buffer
                     #the above wont work if we started halfway through packet, that artifact would last
                     #for the lifetime of the program
-                    self.buffer = self.buffer[match.end():]
+                    print 'removing from buffer'
+  		    print match.end() 
+		    self.buffer = self.buffer[match.end():]
                     callback = functools.partial(self.callback, match.groups()[4])
                     self.io_loop.add_callback(callback)
         except:
