@@ -145,8 +145,8 @@ class SimpleAsyncDmtpClient(SimpleAsyncHTTPClient):
     def _on_timeout(self, key):
         request, callback, timeout_handle = self.waiting[key]
         self.queue.remove((key, request, callback))
-        timeout_response = HTTPResponse(
-            request, 599, error=HTTPError(599, "Timeout"),
+        timeout_response = DMTPResponse(
+            request, 599, error=Exception(599, "Timeout"),
             request_time=self.io_loop.time() - request.start_time)
         self.io_loop.add_callback(callback, timeout_response)
         del self.waiting[key]
@@ -155,11 +155,11 @@ import struct
 
 class DMTPRequest(tornado.httpclient.HTTPRequest):
     
-    def __init__(self,url,accountid,deviceid,packets=[]):
+    def __init__(self,url,accountid,deviceid,temperature_packets=[]):
         super(DMTPRequest,self).__init__(url)
         self.accountid = accountid
         self.deviceid = deviceid
-        self.packets = packets
+        self.temperature_packets = temperature_packets
     def start_block(self):
         return '\xe0'
     
@@ -172,6 +172,14 @@ class DMTPRequest(tornado.httpclient.HTTPRequest):
     def get_device_header(self):
         return '\x13'+struct.pack(">B", len(self.deviceid)) + self.deviceid
     
+    def get_temperature_packets(self):
+        pass
+    
+    def get_write_block(self):
+        return self.start_block() + self.get_account_header() +\
+            self.start_block() + self.get_device_header() + \
+            self.end_block()
+            
     
 class DMTPResponse(tornado.httpclient.HTTPResponse):
     
@@ -251,7 +259,7 @@ class DMTPConnection(httputil.HTTPConnection):
         need_delegate_close = False
         
         try:
-            
+           
             '''header_future = self.stream.read_until_regex(
                 "\x00",
                 max_bytes=3)
@@ -278,7 +286,7 @@ class DMTPConnection(httputil.HTTPConnection):
             self._disconnect_on_finish = not self._can_keep_alive(
                 start_line, headers)
             """
-            self._read_body_until_close(delegate)
+            yield self._read_body_until_close(delegate)
 
             need_delegate_close = True
             '''with _ExceptionLoggingContext(app_log):
@@ -331,7 +339,7 @@ class DMTPConnection(httputil.HTTPConnection):
                                          self.context)
                             self.stream.close()
                             raise gen.Return(False)'''
-            self._read_finished = True
+            #self._read_finished = True
             if not self._write_finished or self.is_client:
                 need_delegate_close = False
                 with _ExceptionLoggingContext(app_log):
@@ -453,7 +461,7 @@ class DMTPConnection(httputil.HTTPConnection):
 
     def finish(self):
         if not self.stream.closed():
-                self._pending_write = self.stream.write(b"0\r\n\r\n")
+                #self._pending_write = self.stream.write("\xe0\x00\x00")
                 self._pending_write.add_done_callback(self._on_write_complete)
         self._write_finished = True
         # If the app finished the request while we're still reading,
@@ -500,6 +508,7 @@ class DMTPConnection(httputil.HTTPConnection):
     @gen.coroutine
     def _read_body_until_close(self, delegate):
         body = yield self.stream.read_until_close()
+        self._read_finished = True
         if not self._write_finished or self.is_client:
             with _ExceptionLoggingContext(app_log):
                 delegate.data_received(body)
@@ -567,11 +576,7 @@ class _DMTPConnection(httputil.HTTPMessageDelegate):
         
         
         self.connection = self._create_connection(stream)
-        self.connection.write(self.request.start_block() +\
-                              self.request.get_account_header() +\
-                              self.request.start_block() +\
-                              self.request.get_device_header() +\
-                              self.request.end_block())
+        self.connection.write(self.request.get_write_block())
         #self.connection.write_packets(self.request.packets)
         '''start_line = httputil.RequestStartLine(self.request.method,
                                                req_path, '')
@@ -595,23 +600,7 @@ class _DMTPConnection(httputil.HTTPMessageDelegate):
             self._sockaddr)
         return connection
 
-    def _write_body(self, start_read):
-        if self.request.body is not None:
-            self.connection.write(self.request.body)
-        elif self.request.body_producer is not None:
-            fut = self.request.body_producer(self.connection.write)
-            if is_future(fut):
-                def on_body_written(fut):
-                    fut.result()
-                    self.connection.finish()
-                    if start_read:
-                        self._read_response()
-                self.io_loop.add_future(fut, on_body_written)
-                return
-        self.connection.finish()
-        if start_read:
-            self._read_response()
-
+    
     def _read_response(self):
         # Ensure that any exception raised in read_response ends up in our
         # stack context.
@@ -702,6 +691,7 @@ class _DMTPConnection(httputil.HTTPMessageDelegate):
         self.stream.close()
 
     def data_received(self, chunk):
+        print(chunk)
         if self.request.streaming_callback is not None:
             self.request.streaming_callback(chunk)
         else:
@@ -721,11 +711,17 @@ def end_block():
 
 ioloop = tornado.ioloop.IOLoop.current()
 client = SimpleAsyncDmtpClient(ioloop)
-dmtp_request = DMTPRequest('dmtp://192.168.1.137:31000',"jdsmith","jdsmith27")
-def cb(response):
-    assert(response)
-    
-client.fetch(dmtp_request,callback=cb)
+dmtp_request = DMTPRequest('dmtp://192.168.1.138:31000',"jdsmith","jdsmith27")
+import time
+def on_response(response):
+    print("here")
+    print(response)
+def cb():
+    client.fetch(dmtp_request,on_response)
+
+periodic_callback = tornado.ioloop.PeriodicCallback(cb,1000, io_loop=ioloop)
+periodic_callback.start()
+cb()
 ioloop.start()
     
 
