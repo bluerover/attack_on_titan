@@ -20,6 +20,7 @@ from tornado.netutil import Resolver,OverrideResolver
 from tornado.http1connection import HTTP1Connection,HTTP1ConnectionParameters,_ExceptionLoggingContext
 from django.http.request import HttpRequest
 from tornado.escape import utf8, _unicode
+import time
 
 try:
     import urlparse  # py2
@@ -153,13 +154,62 @@ class SimpleAsyncDmtpClient(SimpleAsyncHTTPClient):
 
 import struct
 
+'''    DMTP Packet Structure
+    0:2 E051 Packet type 
+    2:1 XX Payload length [variable] 
+    
+    3:2 XXXX Status code:  
+    5:4 XXXXXXXX Timestamp [POSIX Epoch time] 
+    9:4 XXXXXX Latitude (may be zeroed if client has  no GPS) 
+    13:4 XXXXXX Longitude    (may be zeroed if client has no GPS) 
+    16:4 
+    19:1 XX Reader ID 
+    20:2 XXXX Customer Number 
+    21:3 XXXXXX Tag Number 
+    24:1 XX  RSSI 
+    25:1 XX Battery Life indicator 
+    26:1 XX Alarm Flags (optional) 
+    27:2 XXXX Temperature (optional) 
+    29:1      XX Sequence [0 to 255] 
+'''
+
+class DMTPTagPacket(object):
+    def __init__(self):
+        self.packet_header = 20960 #'\xE0\x51'
+        
+        'The Header is in a different endian format then the packet payload :s'
+        '''self.payload_fmt = '=2s4sLL4xbH\
+                        xH\
+                        3bhb'''
+        self.payload_fmt = '>HLLL4xbH\
+                        xH\
+                        3bhb'
+        self.header_fmt = '=Hb'
+    def _generate(self,status_code,timestamp,cust_num,tag_num,rssi,reader_id,battery,flags,temperature,latitude=0,longitude=0,seq_num=0,reader_type=0):
+        
+        '''payload_packet = struct.pack(self.payload_fmt,struct.pack(">H",status_code),struct.pack(">L",timestamp),latitude,longitude,reader_id,cust_num,\
+                  tag_num,
+                  rssi,battery,flags,temperature,seq_num)'''
+        payload_packet = struct.pack(self.payload_fmt,status_code,timestamp,latitude,longitude,reader_id,cust_num,\
+                  tag_num,
+                  rssi,battery,flags,int(temperature*10),seq_num)
+        header_packet = struct.pack(self.header_fmt,self.packet_header,len(payload_packet))
+        self.hex_packet = header_packet + payload_packet 
+        return self.hex_packet
+    
+class DMTPTagInRangePacket(DMTPTagPacket):
+    def __init__(self,cust_num,tag_num,rssi,reader_id,battery,flags,temperature):
+        super(DMTPTagInRangePacket, self).__init__()
+        super(DMTPTagInRangePacket,self)._generate(62720,int(time.time()),cust_num,tag_num,rssi,reader_id,battery,flags,temperature)
+  
+
 class DMTPRequest(tornado.httpclient.HTTPRequest):
     
-    def __init__(self,url,accountid,deviceid,temperature_packets=[]):
+    def __init__(self,url,accountid,deviceid,packets=[]):
         super(DMTPRequest,self).__init__(url)
         self.accountid = accountid
         self.deviceid = deviceid
-        self.temperature_packets = temperature_packets
+        self.packets= packets
     def start_block(self):
         return '\xe0'
     
@@ -178,9 +228,9 @@ class DMTPRequest(tornado.httpclient.HTTPRequest):
     def get_write_block(self):
         return self.start_block() + self.get_account_header() +\
             self.start_block() + self.get_device_header() + \
+            "".join(map(lambda x:x.hex_packet,self.packets)) +\
             self.end_block()
             
-    
 class DMTPResponse(tornado.httpclient.HTTPResponse):
     
     def __init__(self,*args,**kwargs):
@@ -556,7 +606,7 @@ class _DMTPConnection(httputil.HTTPMessageDelegate):
     def _on_timeout(self):
         self._timeout = None
         if self.final_callback is not None:
-            raise Error(599, "Timeout")
+            raise Exception(599, "Timeout")
 
     def _remove_timeout(self):
         if self._timeout is not None:
@@ -711,16 +761,30 @@ def end_block():
 
 ioloop = tornado.ioloop.IOLoop.current()
 client = SimpleAsyncDmtpClient(ioloop)
-dmtp_request = DMTPRequest('dmtp://192.168.1.138:31000',"jdsmith","jdsmith27")
+
+
+
 import time
 def on_response(response):
-    print("here")
     print(response)
+    if response.error:
+        print("DONT CLEAR BUFFER")
+    else:
+        print("CLEAR BUFFER")
+        
 def cb():
+    #cust_num,tag_num,rssi,reader_id,battery,flags,temperature):
+    packet = DMTPTagInRangePacket(6,4302,77,0,2,3,-21.35)
+    print(packet.hex_packet)
+    dmtp_request = DMTPRequest('dmtp://192.168.1.139:31000',"jdsmith","jdsmith27",packets=[packet])
     client.fetch(dmtp_request,on_response)
-
+def cb2():
+    print("timer:%d"%int(time.time()))
 periodic_callback = tornado.ioloop.PeriodicCallback(cb,1000, io_loop=ioloop)
+periodic_callback2 = tornado.ioloop.PeriodicCallback(cb2,100, io_loop=ioloop)
+
 periodic_callback.start()
+periodic_callback2.start()
 cb()
 ioloop.start()
     
