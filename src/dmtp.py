@@ -18,7 +18,6 @@ from tornado.simple_httpclient import SimpleAsyncHTTPClient
 import functools 
 from tornado.netutil import Resolver,OverrideResolver
 from tornado.http1connection import HTTP1Connection,HTTP1ConnectionParameters,_ExceptionLoggingContext
-from django.http.request import HttpRequest
 from tornado.escape import utf8, _unicode
 import time
 

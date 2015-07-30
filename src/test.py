@@ -4,11 +4,12 @@ import datetime
 from tornado import ioloop
 import pika
 from pika import adapters
-from rabbit import Consumer,Producer
+from consumer import Consumer,Producer
 
 
 io_loop = tornado.ioloop.IOLoop.instance()
 producer = Producer('amqp://guest:guest@localhost:5672/%2F',io_loop)
+producer.run()
 
 import json
 
@@ -26,13 +27,10 @@ def cb(packet):
       
     protrac_packet = protrac.ProtracPacket()
     protrac_packet.decode(packet)
-    producer.send_message(json.dumps(protrac_packet))
+    producer.send_message(json.dumps(protrac_packet.__dict__))
     pass
 
 print 'init client'
 p = protrac.ProtracClient('/dev/ttyUSB0',115200,io_loop, callback=cb)
-pika_conn =  adapters.TornadoConnection(pika.URLParameters('localhost'),
-                                        stop_ioloop_on_close=False,
-                                        custom_ioloop=io_loop)
 
 io_loop.start()
