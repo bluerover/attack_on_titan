@@ -7,17 +7,17 @@ import time
 
 class ProtracPacket(object):
     
-    def __init__(self):
-        self.rssi = None
-        self.cust_num = None
-        self.tag_num = None
-        self.tag_seq = None
-        self.switch_count = None
-        self.battery = None
-        self.flags = None
-        self.recv_bytes = None
-        self.temperature = None
-        self.timestamp = int(time.time())
+    def __init__(self,rssi,cust_num,tag_num,tag_seq,switch_count,battery,flags,recv_bytes,temperature,timestamp):
+        self.rssi = rssi
+        self.cust_num = cust_num
+        self.tag_num = tag_num
+        self.tag_seq = tag_seq
+        self.switch_count = switch_count
+        self.battery = battery
+        self.flags = flags
+        self.recv_bytes = recv_bytes
+        self.temperature = temperature
+        self.timestamp = timestamp
         pass
     
     def decode(self,packet):
