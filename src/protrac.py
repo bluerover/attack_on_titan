@@ -3,7 +3,35 @@ import serial
 import sys
 import re
 import functools
+import time
 
+class ProtracPacket(object):
+    
+    def __init__(self):
+        self.rssi = None
+        self.cust_num = None
+        self.tag_num = None
+        self.tag_seq = None
+        self.switch_count = None
+        self.battery = None
+        self.flags = None
+        self.recv_bytes = None
+        self.temperature = None
+        self.timestamp = int(time.time())
+        pass
+    
+    def decode(self,packet):
+        self.rssi = packet[0:1].encode('hex')
+        self.cust_num = packet[1:3].encode('hex')
+        self.tag_num = packet[3:6].encode('hex')
+        self.tag_seq = packet[6:7].encode('hex')
+        self.switch_count = packet[7:8].encode('hex')
+        self.battery = packet[8:9].encode('hex')
+        self.flags = packet[9:10].encode('hex')
+        self.recv_bytes = packet[10:11].encode('hex')
+        self.temperature = int(packet[11:].encode('hex'),16)*0.2-50
+
+    
 class ProtracClient(object):
     
     def __init__(self,device,baud_rate,io_loop,callback=None):
@@ -41,12 +69,5 @@ class ProtracClient(object):
         except:
             print sys.exc_info()
             
-            
-class ProtracPacket(object):
-    
-    def __init__(self):
-        self.start_block
-        
-        
-    def unpack(self,hex_string):
-        struct.unpack('',hex_string)
+        pass            
+
