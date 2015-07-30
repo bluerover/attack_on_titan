@@ -248,10 +248,21 @@ class RabbitConnection(object):
         LOGGER.info('Received message # %s from %s: %s',
                     basic_deliver.delivery_tag, properties.app_id, body)
         if(self._on_message):
-            self.io_loop.add_callback(self._on_message,body)
-        #TODO: process temperature packet
-        self.acknowledge_message(basic_deliver.delivery_tag)
+            try:
+                self.io_loop.add_callback(self._on_message,body)
+                self.acknowledge_message(basic_deliver.delivery_tag)
+            except:
+                self.reject_message(basic_deliver.delivery_tag)
+        else:
+            self.acknowledge_message(basic_deliver.delivery_tag)
         
+        #TODO: process temperature packet
+        
+        
+    
+    def reject_message(self,delivery_tag):
+        self._channel.basic_reject(delivery_tag = delivery_tag, requeue=False)
+           
     def send_message(self,message):
         self._channel.basic_publish(exchange=self.EXCHANGE,
                       routing_key=self.ROUTING_KEY,
