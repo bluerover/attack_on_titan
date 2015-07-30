@@ -23,8 +23,17 @@ def main():
         tag_dictionary = dict()    
         processed = set()
         def on_message(body,*args):
-            json.loads(ProtracPacket)
-            print(body)
+            pp = ProtracPacket(**json.loads(body))
+            pp.rssi = int(pp.rssi,16)
+            pp.cust_num = int(pp.cust_num,16)
+            pp.tag_num = int(pp.tag_num,16)
+            pp.tag_seq = int(pp.tag_seq,16)
+            pp.switch_count = int(pp.switch_count,16)
+            pp.battery = int(pp.battery,16)
+            pp.flags = int(pp.flags,16)
+            pp.recv_bytes = int(pp.recv_bytes,16)
+            pp.temperature = int(pp.temperature,16)
+            tag_dictionary[pp.tag_num] = pp
             
         def on_timer():
             processed.clear()
