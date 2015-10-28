@@ -6,9 +6,15 @@ import pika
 from pika import adapters
 from consumer import Consumer,Producer
 import json
+import time
 
 io_loop = tornado.ioloop.IOLoop.instance()
 producer = Producer('amqp://guest:guest@localhost:5672/%2F',io_loop)
+def handle_callback_exception(callback):
+    self.assertIs(sys.exc_info()[0], ZeroDivisionError)
+    self.stop()
+
+io_loop.handle_callback_exception = handle_callback_exception
 
 def on_packet(packet):
     print datetime.datetime.now() 
@@ -31,7 +37,8 @@ def on_packet(packet):
     packet[8:9].encode('hex'),\
     packet[9:10].encode('hex'),\
     packet[10:11].encode('hex'),\
-    int(packet[11:].encode('hex'),16)*0.2-50  )
+    int(packet[11:].encode('hex'),16)*0.2-50,\
+    int(time.time()))
     producer.send_message(json.dumps(protrac_packet.__dict__))
     pass
 

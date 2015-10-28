@@ -249,7 +249,7 @@ class RabbitConnection(object):
                     basic_deliver.delivery_tag, properties.app_id, body)
         if(self._on_message):
             try:
-                self.io_loop.add_callback(self._on_message,body)
+                self._on_message(body)
                 self.acknowledge_message(basic_deliver.delivery_tag)
             except:
                 self.reject_message(basic_deliver.delivery_tag)
@@ -261,7 +261,7 @@ class RabbitConnection(object):
         
     
     def reject_message(self,delivery_tag):
-        self._channel.basic_reject(delivery_tag = delivery_tag, requeue=False)
+        self._channel.basic_reject(delivery_tag = delivery_tag, requeue=True)
            
     def send_message(self,message):
         self._channel.basic_publish(exchange=self.EXCHANGE,
@@ -357,7 +357,7 @@ class RabbitConnection(object):
         LOGGER.info('Stopping')
         self._closing = True
         self.stop_consuming()
-        self._connection.ioloop.start()
+        #self._connection.ioloop.start()
         LOGGER.info('Stopped')
 
 class Consumer(RabbitConnection):

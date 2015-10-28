@@ -197,7 +197,7 @@ class DMTPTagPacket(object):
         return self.hex_packet
     
 class DMTPTagInRangePacket(DMTPTagPacket):
-    def __init__(self,cust_num,tag_num,rssi,reader_id,battery,flags,temperature):
+    def __init__(self,cust_num,tag_num,rssi,reader_id,battery,flags,temperature,*args,**kwargs):
         super(DMTPTagInRangePacket, self).__init__()
         super(DMTPTagInRangePacket,self)._generate(62720,int(time.time()),cust_num,tag_num,rssi,reader_id,battery,flags,temperature)
   
@@ -758,12 +758,12 @@ def start_block():
 def end_block():
     return '\x00'
 
-ioloop = tornado.ioloop.IOLoop.current()
-client = SimpleAsyncDmtpClient(ioloop)
-
-
 def main():
     import time
+    ioloop = tornado.ioloop.IOLoop.current()
+    client = SimpleAsyncDmtpClient(ioloop)
+
+
     def on_response(response):
         print(response)
         if response.error:
@@ -775,15 +775,15 @@ def main():
         #cust_num,tag_num,rssi,reader_id,battery,flags,temperature):
         packet = DMTPTagInRangePacket(6,4302,77,0,2,3,-21.35)
         print(packet.hex_packet)
-        dmtp_request = DMTPRequest('dmtp://192.168.1.139:31000',"jdsmith","jdsmith27",packets=[packet])
+        dmtp_request = DMTPRequest('dmtp://54.84.59.135:21000',"foodsafety","amittest",packets=[packet])
         client.fetch(dmtp_request,on_response)
     def cb2():
         print("timer:%d"%int(time.time()))
-    periodic_callback = tornado.ioloop.PeriodicCallback(cb,1000, io_loop=ioloop)
+    periodic_callback = tornado.ioloop.PeriodicCallback(cb,5000, io_loop=ioloop)
     periodic_callback2 = tornado.ioloop.PeriodicCallback(cb2,100, io_loop=ioloop)
     
     periodic_callback.start()
-    periodic_callback2.start()
+    #periodic_callback2.start()
     cb()
     ioloop.start()
     
