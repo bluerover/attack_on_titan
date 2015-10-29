@@ -266,7 +266,10 @@ class RabbitConnection(object):
     def send_message(self,message):
         self._channel.basic_publish(exchange=self.EXCHANGE,
                       routing_key=self.ROUTING_KEY,
-                      body=message)
+                      body=message,
+		      properties=pika.BasicProperties(
+                         delivery_mode = 2, # make message persistent
+                      ))
         
     def on_cancelok(self, unused_frame):
         """This method is invoked by pika when RabbitMQ acknowledges the
