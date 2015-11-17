@@ -197,9 +197,9 @@ class DMTPTagPacket(object):
         return self.hex_packet
     
 class DMTPTagInRangePacket(DMTPTagPacket):
-    def __init__(self,cust_num,tag_num,rssi,reader_id,battery,flags,temperature,*args,**kwargs):
+    def __init__(self,timestamp=0,cust_num=0,tag_num=0,rssi=0,reader_id=0,battery=0,flags=0,temperature=0,tag_seq=0,*args,**kwargs):
         super(DMTPTagInRangePacket, self).__init__()
-        super(DMTPTagInRangePacket,self)._generate(62720,int(time.time()),cust_num,tag_num,rssi,reader_id,battery,flags,temperature)
+        super(DMTPTagInRangePacket,self)._generate(62720,timestamp,cust_num,tag_num,rssi,reader_id,battery,flags,temperature)
   
 
 class DMTPRequest(tornado.httpclient.HTTPRequest):
@@ -770,10 +770,14 @@ def main():
             print("DONT CLEAR BUFFER")
         else:
             print("CLEAR BUFFER")
-            
+    import json        
     def cb():
         #cust_num,tag_num,rssi,reader_id,battery,flags,temperature):
-        packet = DMTPTagInRangePacket(6,4302,77,0,2,3,-21.35)
+        d = {u'temperature': 23.400000000000006, u'recv_bytes': 148, u'battery': 3, u'timestamp': int(time.time()), u'tag_seq': 180, u'switch_count': 0, u'flags': 0, u'rssi': 153, u'cust_num': 6, u'tag_num': 40846}
+	d['rssi']=d['rssi']-128
+	packet = DMTPTagInRangePacket(**d)
+	
+	#packet = DMTPTagInRangePacket(int(time.time()),6,4302,77,0,2,3,-21.35)
         print(packet.hex_packet)
         dmtp_request = DMTPRequest('dmtp://54.84.59.135:21000',"foodsafety","amittest",packets=[packet])
         client.fetch(dmtp_request,on_response)

@@ -3,7 +3,7 @@ import pika
 import logging
 import functools
 from rabbit import RabbitConnection,Producer,Consumer
-
+from dmtp import *
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
@@ -14,51 +14,101 @@ from multiprocessing import Manager
 from protrac import ProtracPacket
 from dmtp import DMTPTagInRangePacket
 import json 
+import ConfigParser
+from threading import Thread
 
+
+tag_dictionary = dict()
 def main():
     try:
+	config = ConfigParser.SafeConfigParser({"accountId":None,"deviceId":None,"dmtp_url":'dmtp://54.84.59.135:21000'})
+	config.read("settings.cfg")
+	print config.get("dmtp","dmtp_url")
+	print config.get("dmtp","accountId")
+	print config.get("dmtp","deviceId")
+
         logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-        io_loop = tornado.ioloop.IOLoop.instance()
-        #consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',io_loop)
-        tag_dictionary = dict()    
+        ioloop = tornado.ioloop.IOLoop()
+        #tag_dictionary = dict()    
         processed = set()
-        def on_message(body,*args):
-            pp = ProtracPacket(**json.loads(body))
-            pp.rssi = int(pp.rssi,16)
-            pp.cust_num = int(pp.cust_num,16)
-            pp.tag_num = int(pp.tag_num,16)
-            pp.tag_seq = int(pp.tag_seq,16)
-            pp.switch_count = int(pp.switch_count,16)
-            pp.battery = int(pp.battery,16)
-            pp.flags = int(pp.flags,16)
-            pp.recv_bytes = int(pp.recv_bytes,16)
-            pp.temperature = int(pp.temperature,16)
-            tag_dictionary[pp.tag_num] = pp
-            
+	client = None #SimpleAsyncDmtpClient(ioloop)
+	consumer = None
+	producer = None
+	convert = ['rssi','cust_num','flags','battery','tag_num','tag_seq','recv_bytes','switch_count']
+	def on_message(body):
+            #pp = ProtracPacket(**json.loads(body))
+            #print("on message")
+	    #print(body)
+	    try:
+		d = json.loads(body)
+	        tag_dictionary[d['tag_num']] = d
+	    except:
+	    	logging.error("exception in asynchronous operation",exc_info=True)
+	    logging.info("finished processing message")
+	    #raise "Dont want to remove off queue"
+	
+	def on_response(response):
+	    print(response)
+	    if response.error:
+		print("errror sending packet")
+	    else:
+		print("tag in range sent")
+
         def on_timer():
-            processed.clear()
-            for k,v in tag_dictionary.iteritems():
-                if not(k in processed):
-                    '''(self,cust_num,tag_num,rssi,reader_id,battery,flags,temperature):'''
-                    dmtp_packet = DMTPTagInRangePacket(v.cust_num, v.tag_num,v.rssi,0,v.battery,v.flag,v.temperature)
-                    del tag_dictionary[k]
-                    producer.send_message(json.dumps(dmtp_packet.__dict__))
-                    processed.add(k)
-                
-        consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',io_loop,on_message)
-        producer = Producer('amqp://guest:guest@localhost:5672/%2F',io_loop)
-        producer.QUEUE = "dmtp"
-        producer.EXCHANGE = "upstream"
-        consumer.run()
-        producer.run()
-                
-        periodic_callback = tornado.ioloop.PeriodicCallback(on_timer, 5000,io_loop=io_loop)
-        periodic_callback.start()
-        io_loop.start()
+	    print("running timer")
+	    global client
+	    global tag_dictionary
+	    for k,d in tag_dictionary.iteritems():
+            	print("processing packet %s"%k)
+		for prop in convert:
+                    d[prop] = int(d[prop],16)
+                print(d)
+                try:
+		    d['rssi'] = d['rssi']-128
+		    dmtp_packet = DMTPTagInRangePacket(**d)
+		    dmtp_request = DMTPRequest(\
+		    config.get("dmtp","dmtp_url"),\
+		    config.get("dmtp","accountId"),\
+		    config.get("dmtp","deviceId"),\
+		    packets=[dmtp_packet])
+		    client.fetch(dmtp_request,on_response)	
+		except:
+   		    logging.error("exception in asynchronous operation",exc_info=True)
+	    tag_dictionary = dict()
+	    print("clear dictionary")
+	    return
+
+	consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',ioloop,on_message)
+        #producer = Producer('amqp://guest:guest@localhost:5672/%2F',ioloop)
+        #producer.QUEUE = "dmtp"
+        #producer.EXCHANGE = "upstream"
+        #consumer.run()
+        #producer.run()
+        print("Start timer")
+	def run_loop(on_timer):
+	    thread_ioloop = tornado.ioloop.IOLoop() 
+	    global client
+	    global producer
+	    producer = Producer('amqp://guest:guest@localhost:5672/%2F',thread_ioloop)
+            producer.QUEUE = "dmtp"
+            producer.EXCHANGE = "upstream"
+	    client = SimpleAsyncDmtpClient(thread_ioloop) 
+	    periodic_callback = tornado.ioloop.PeriodicCallback(on_timer,\
+		config.getint("dmtp","timer"),io_loop=thread_ioloop)
+            periodic_callback.start()        
+	    producer.run()
+            thread_ioloop.start()
+	thread = Thread(target = run_loop,args=(on_timer,))
+	thread.daemon = True
+	thread.start()
+	#periodic_callback = tornado.ioloop.PeriodicCallback(on_timer, 10000,io_loop=ioloop)
+        #periodic_callback.start()
+        consumer.run() 
+	ioloop.start()
     except KeyboardInterrupt:
         consumer.stop()
-        producer.stop()
-        io_loop.stop()
+        #producer.stop()
+        ioloop.stop()
     
 
 if __name__ == '__main__':
