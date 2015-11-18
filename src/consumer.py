@@ -16,13 +16,13 @@ from dmtp import DMTPTagInRangePacket
 import json 
 import ConfigParser
 from threading import Thread
-
+import pickle
 
 tag_dictionary = dict()
 def main():
     try:
 	config = ConfigParser.SafeConfigParser({"accountId":None,"deviceId":None,"dmtp_url":'dmtp://54.84.59.135:21000'})
-	config.read("settings.cfg")
+	config.read("/home/pi/attack_on_titan/src/settings.cfg")
 	print config.get("dmtp","dmtp_url")
 	print config.get("dmtp","accountId")
 	print config.get("dmtp","deviceId")
@@ -58,6 +58,7 @@ def main():
 	    print("running timer")
 	    global client
 	    global tag_dictionary
+	    global producer
 	    for k,d in tag_dictionary.iteritems():
             	print("processing packet %s"%k)
 		for prop in convert:
@@ -71,7 +72,8 @@ def main():
 		    config.get("dmtp","accountId"),\
 		    config.get("dmtp","deviceId"),\
 		    packets=[dmtp_packet])
-		    client.fetch(dmtp_request,on_response)	
+		    #client.fetch(dmtp_request,on_response)	
+		    producer.send_message(pickle.dumps(dmtp_packet))
 		except:
    		    logging.error("exception in asynchronous operation",exc_info=True)
 	    tag_dictionary = dict()
