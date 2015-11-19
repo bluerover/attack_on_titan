@@ -38,25 +38,27 @@ def main():
 		print("tag in range sent")
 	
 	@gen.coroutine
-        def on_message(body):
-	    print(body)    
-	    print("received packet")
-	    #global client
-	    
-	    dmtp_packet = pickle.loads(body)
-	    dmtp_request = DMTPRequest(\
+        def on_message(body,consumer,basic_deliver):
+	    try:
+		print("received packet")
+	        dmtp_packet = pickle.loads(body)
+	        dmtp_request = DMTPRequest(\
 		    config.get("dmtp","dmtp_url"),\
 		    config.get("dmtp","accountId"),\
 		    config.get("dmtp","deviceId"),\
 		    packets=[dmtp_packet])
-	    #yield DMTPResponse Object
-	    response = yield client.fetch(dmtp_request)	
-	    if not(response.code == 200):
-		raise "Error sending data"
-	
-	    return
-
-	consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',ioloop,on_message)
+	        #yield DMTPResponse Object
+	        response = yield client.fetch(dmtp_request)	
+	        print('sent data and got here')
+		if not(response.code == 200):
+		    consumer.reject_message(basic_deliver.delivery_tag)	   
+	            raise Exception("Error sending data")
+	    	consumer.acknowledge_message(basic_deliver.delivery_tag)
+		return
+	    except:
+		import sys
+		print sys.exc_info()
+	consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',ioloop,None,on_ack_message=on_message)
         consumer.QUEUE = 'dmtp'
 	consumer.EXCHANGE = 'upstream'
 	consumer.run()

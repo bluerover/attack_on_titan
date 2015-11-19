@@ -25,7 +25,7 @@ class RabbitConnection(object):
     QUEUE = 'text'
     ROUTING_KEY = '*'
 
-    def __init__(self, amqp_url,io_loop,consume_queue,on_message=None):
+    def __init__(self, amqp_url,io_loop,consume_queue,on_message=None,on_ack_message=None):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -33,7 +33,8 @@ class RabbitConnection(object):
 
         """
         self._on_message = on_message
-        self._connection = None
+        self._on_ack_message = on_ack_message
+	self._connection = None
         self._channel = None
         self._closing = False
         self._consumer_tag = None
@@ -245,15 +246,20 @@ class RabbitConnection(object):
         :param str|unicode body: The message body
 
         """
-        LOGGER.info('Received message # %s from %s: %s',
-                    basic_deliver.delivery_tag, properties.app_id, body)
+        #LOGGER.info('Received message # %s from %s: %s',
+        #            basic_deliver.delivery_tag, properties.app_id, body)
         if(self._on_message):
             try:
                 self._on_message(body)
                 self.acknowledge_message(basic_deliver.delivery_tag)
             except:
                 self.reject_message(basic_deliver.delivery_tag)
-        else:
+        elif(self._on_ack_message):
+	    try:
+		self._on_ack_message(body,self,basic_deliver)
+	    except:
+		LOGGER.error("Error processing message")
+	else:
             self.acknowledge_message(basic_deliver.delivery_tag)
         
         #TODO: process temperature packet
@@ -364,8 +370,8 @@ class RabbitConnection(object):
         LOGGER.info('Stopped')
 
 class Consumer(RabbitConnection):
-    def __init__(self,amqp_url, io_loop,on_message):
-       super(Consumer,self).__init__(amqp_url,io_loop,True,on_message=on_message)
+    def __init__(self,amqp_url, io_loop,on_message,*args,**kwargs):
+       super(Consumer,self).__init__(amqp_url,io_loop,True,on_message=on_message,*args,**kwargs)
        
 class Producer(RabbitConnection):
     def __init__(self,amqp_url, io_loop):
