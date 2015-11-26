@@ -374,5 +374,5 @@ class Consumer(RabbitConnection):
        super(Consumer,self).__init__(amqp_url,io_loop,True,on_message=on_message,*args,**kwargs)
        
 class Producer(RabbitConnection):
-    def __init__(self,amqp_url, io_loop):
-       super(Producer,self).__init__(amqp_url,io_loop, False)
+    def __init__(self,amqp_url, io_loop,*args,**kwargs):
+       super(Producer,self).__init__(amqp_url,io_loop, False,*args,**kwargs)
