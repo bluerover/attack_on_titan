@@ -19,6 +19,8 @@ fi
 
 /usr/lib/autossh/autossh -N -f -M 10628 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no  -i "/home/pi/ssh-proxy.pem" -R 6666:localhost:22 ubuntu@54.173.253.84 &
 
+/usr/local/bin/supervisord -c ~/attack_on_titan/config/supervisord.conf
+
 /home/pi/umtskeeper/umtskeeper --sakisoperators "USBINTERFACE='0' OTHER='USBMODEM' USBMODEM='12d1:1506' APN='CUSTOM_APN' CUSTOM_APN='m2minternet.apn' APN_USER='0' APN_PASS='0'" --sakisswitches "--sudo --console" --log &>> /home/pi/umtskeeper/error.log &
 
 
