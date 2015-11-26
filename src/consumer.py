@@ -91,7 +91,7 @@ def main():
 	    thread_ioloop = tornado.ioloop.IOLoop() 
 	    global client
 	    global producer
-	    producer = Producer('amqp://guest:guest@localhost:5672/%2F',thread_ioloop)
+	    producer = Producer('amqp://guest:guest@localhost:5672/%2F',thread_ioloop,durable=True)
             producer.QUEUE = "dmtp"
             producer.EXCHANGE = "upstream"
 	    client = SimpleAsyncDmtpClient(thread_ioloop) 

@@ -25,7 +25,7 @@ class RabbitConnection(object):
     QUEUE = 'text'
     ROUTING_KEY = '*'
 
-    def __init__(self, amqp_url,io_loop,consume_queue,on_message=None,on_ack_message=None):
+    def __init__(self, amqp_url,io_loop,consume_queue,on_message=None,on_ack_message=None,durable=False):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -41,7 +41,7 @@ class RabbitConnection(object):
         self._url = amqp_url
         self.io_loop = io_loop
         self.consume_queue = consume_queue
-        
+        self.durable=durable 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
         When the connection is established, the on_connection_open method
@@ -184,7 +184,7 @@ class RabbitConnection(object):
 
         """
         LOGGER.info('Declaring queue %s', queue_name)
-        self._channel.queue_declare(self.on_queue_declareok, queue_name,durable=True)
+        self._channel.queue_declare(self.on_queue_declareok, queue_name,durable=self.durable)
 
     def on_queue_declareok(self, method_frame):
         """Method invoked by pika when the Queue.Declare RPC call made in

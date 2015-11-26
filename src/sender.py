@@ -21,7 +21,7 @@ import pika
 def main():
     try:
 	config = ConfigParser.SafeConfigParser({"accountId":None,"deviceId":None,"dmtp_url":'dmtp://54.84.59.135:21000'})
-	config.read("settings.cfg")
+	config.read("/home/pi/attack_on_titan/src/settings.cfg")	
 	print config.get("dmtp","dmtp_url")
 	print config.get("dmtp","accountId")
 	print config.get("dmtp","deviceId")
@@ -58,7 +58,7 @@ def main():
 	    except:
 		import sys
 		print sys.exc_info()
-	consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',ioloop,None,on_ack_message=on_message)
+	consumer = Consumer('amqp://guest:guest@localhost:5672/%2F',ioloop,None,on_ack_message=on_message,durable=True)
         consumer.QUEUE = 'dmtp'
 	consumer.EXCHANGE = 'upstream'
 	consumer.run()
